@@ -29,7 +29,6 @@ def test_create_column(output: FieldMeta, expect, case):
     TableMeta,
     inputs={
         "c1": {
-            "name": TABLE_NAME,
             "metadata": {
                 "columns": {
                     "username": {"required": True, "dtype": "array", "proc": "telex"},
@@ -46,7 +45,7 @@ def test_create_column(output: FieldMeta, expect, case):
     },
 )
 def test_create_table(output: TableMeta, expect, case):
-    assert SQLBuilder.create_table(output) == expect
+    assert SQLBuilder.create_table(TABLE_NAME, output) == expect
 
 
 @with_cases(

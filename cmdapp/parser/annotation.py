@@ -3,7 +3,7 @@ from ..types import DTypes
 from ..utils import Hash
 
 ## Notes on case `) :` inside `datatype` part, it will be considered as comment.
-ANNOTATION_PATTERN = r"^([^():]*?)(?:\((.+?)\))?\s*(?::([\s\S]+))?$"
+ANNOTATION_PATTERN = r"^(?:\[\s*(\w+)\s*\])?([^():]*?)(?:\((.+?)\))?\s*(?::([\s\S]+))?$"
 ################# <flags> (<datatype>): <comment>
 ANNOTATION_DATATYPE_PATTERN = (
     r"^(\*?\w+)(?:\[(\w+)\])?(?::\s*(\[.+?\]))?\s*(?:=\s*(.+))?$"
@@ -70,10 +70,11 @@ class AnnotationParser:
         if not match_anno:
             return {}
 
-        flags, datatype, comment = match_anno.groups()
+        metavar, flags, datatype, comment = match_anno.groups()
 
         result = dict(
             flags=AnnotationParser._parse_flags(flags),
             comment=comment.strip() if comment else None,
+            metavar=metavar,
         ) | AnnotationParser._parse_datatype(datatype)
         return Hash.remove(result, None)

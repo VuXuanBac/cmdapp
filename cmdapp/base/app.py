@@ -1,7 +1,5 @@
 from ..database import Database
 from ..core import CmdApp
-from ..render import Response
-from .message import TEMPLATES
 
 
 class BaseApp(CmdApp):
@@ -22,29 +20,6 @@ class BaseApp(CmdApp):
     #             self.do_set("debug true")
     #             self.print_database_errors()
 
-    def on_before_loop(self):
-        print("_" * 80 + "\n")
-
-    def on_after_loop(self):
-        print("_" * 80 + "\n")
-
     def terminate(self, status_code=0):
         self.database.close()
         return super().terminate(status_code)
-
-    def print_database_errors(self):
-        errors = self.database.get_errors()
-        if not self.debug or not errors:
-            return
-        self.perror(Response.message(TEMPLATES["custom"], "-" * 80))
-        for error in errors:
-            self.perror(
-                Response.message(
-                    TEMPLATES["exception"],
-                    type=error["type"],
-                    message=error["message"],
-                    command=error["sql"],
-                    argument=error["data"],
-                )
-            )
-            self.perror(Response.message(TEMPLATES["custom"], "-" * 80))

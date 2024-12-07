@@ -1,30 +1,9 @@
+from typing import Callable
 from cmd2 import Cmd2ArgumentParser
 from .field import FieldMeta, FieldHelper
 
 
 class CommandHelper:
-    def parse_arguments_on_context(
-        value_parser, context, description: str, epilog: str, arguments: dict
-    ):
-        """Use context object to parse text value [Side effect on `arguments`]
-
-        Args:
-            value_parser (Callable): Function to parse the text value
-            context (Any): The context object
-            description (str): Command description
-            epilog (str): Command epilog
-            arguments (dict): Command arguments. Each `comment` text will be parsed
-
-        Returns:
-            dict: Populated values for description, epilog and arguments
-        """
-        description = value_parser(description, context)
-        epilog = value_parser(epilog, context)
-        for name, metadata in arguments.items():
-            if "comment" in metadata:
-                metadata["comment"] = value_parser(metadata["comment"], context)
-        return dict(description=description, epilog=epilog, arguments=arguments)
-
     def create_argparser_with_attributes(
         arguments: dict = {}, description="", epilog="", **kwargs
     ) -> Cmd2ArgumentParser:
@@ -52,7 +31,7 @@ class CommandMeta:
         description: str = None,
         epilog: str = None,
         arguments: dict = None,
-        dependencies: dict = None,
+        dependencies: list[str] = None,
         category: str = None,
         custom: bool = False,
     ) -> None:
@@ -62,7 +41,7 @@ class CommandMeta:
             description (str): Description text describe the command
             epilog (str): Text describe the command, display like a post script
             arguments (dict): Arguments of the command with key is the argument name and value is a str or dict that used to created a `FieldMeta`
-            dependencies (dict, optional): Specify all the contexts of the command. For each context, a subcommand will be created. The context can be used to parse custom arguments (for each subcommands) and parse text value (description, epilog, help...) corresponded to the context. Defaults to None.
+            dependencies (list[str], optional): Specify contexts that the command prototype depends on. For each context, a subcommand will be created. The context can be used to parse custom arguments (for each subcommands) and parse text value (description, epilog, help...) corresponded to the context. Defaults to None.
             category (str, optional): Category for the command. Defaults to None.
             custom (bool, optional): True if the command accepts unknown arguments. Defaults to False.
         """
@@ -71,49 +50,57 @@ class CommandMeta:
         self.arguments = arguments if isinstance(arguments, dict) else {}
         self.category = category or None
         self.with_argparser_options = dict(with_unknown_args=bool(custom))
-        dependencies = dependencies or {}
-        _arguments_for = dependencies.get("arguments", None)
-        _value_parser = dependencies.get("parser", None)
-        self.context_type = dependencies.get("type", None)
-        self.context_values = dependencies.get("values", None)
-        self.arguments_for = _arguments_for if callable(_arguments_for) else None
-        self.value_parser = _value_parser if callable(_value_parser) else None
+        self.dependencies = dependencies or None
 
-    def get_contexts(self, contexts_store: dict[str, object]) -> dict:
-        """With contexts store, get all the contexts and their names that the command depends on
+    def create_argparser(self, **kwargs) -> Cmd2ArgumentParser:
+        """Create `Cmd2ArgumentParser` from command meta
 
         Args:
-            contexts_store (dict[str, object]): Key is the context type and value is context container. Each context container also an dict that map from context name and the context itself
+            kwargs: Options on creating Cmd2ArgumentParser
 
         Returns:
-            dict: The name and value of the context that the command depends on
+            Cmd2ArgumentParser
         """
-        context_containers: dict = (contexts_store or {}).get(self.context_type, None)
-        if not context_containers or not isinstance(context_containers, dict):
-            return {}
-        context_values = self.context_values or list(context_containers)
-        return {k: v for k, v in context_containers.items() if k in context_values}
+        attributes = {
+            "description": self.description,
+            "epilog": self.epilog,
+            "arguments": {
+                name: FieldHelper.parse(metadata)
+                for name, metadata in self.arguments.items()
+            },  # avoid side effect
+        }
+        return CommandHelper.create_argparser_with_attributes(**(kwargs | attributes))
 
-    def _get_argparser_attributes(self, context=None) -> dict:
-        """Helper method for `create_argparser`"""
-        if not context:
-            return {
-                "description": self.description,
-                "epilog": self.epilog,
-                "arguments": {
-                    name: FieldHelper.parse(metadata)
-                    for name, metadata in self.arguments.items()
-                },  # avoid side effect
-            }
+    def create_contexted_argparser(
+        self,
+        context: str,
+        *,
+        contexted_arguments_creator: Callable = None,
+        contexted_value_parser: Callable = None,
+        **kwargs,
+    ) -> Cmd2ArgumentParser:
+        """Create `Cmd2ArgumentParser` in provided context
+
+        Args:
+            context (str): Context to parse command meta
+            contexted_arguments_creator (Callable, optional): Function to generate more arguments (contexted arguments). Defaults to None.
+            contexted_value_parser (Callable, optional): Function to parse text value (like description, epilog, help,...). Defaults to None.
+
+        Raises:
+            ValueError: Error on generating contexted arguments
+
+        Returns:
+            Cmd2ArgumentParser:
+        """
         arguments = self.arguments
-        if self.arguments_for:
-            extended_arguments = self.arguments_for(context)
-            if not isinstance(extended_arguments, dict):
+        if callable(contexted_arguments_creator):
+            contexted_arguments = contexted_arguments_creator(context) or {}
+            if not isinstance(contexted_arguments, dict):
                 raise ValueError(
-                    f"get arguments for context {context} fail because the returned value {extended_arguments} is not a dict"
+                    f"get arguments for context {context} fail because the returned value {contexted_arguments} is not a dict"
                 )
             # when context arguments confict name with normal arguments: normal argument has higher priority
-            arguments = extended_arguments | arguments
+            arguments = contexted_arguments | arguments
         attributes = {
             "description": self.description,
             "epilog": self.epilog,
@@ -122,20 +109,15 @@ class CommandMeta:
                 for name, metadata in arguments.items()
             },
         }
-        if self.value_parser:
-            attributes = CommandHelper.parse_arguments_on_context(
-                self.value_parser, context, **attributes
+        if callable(contexted_value_parser):
+            attributes["description"] = contexted_value_parser(
+                context, attributes["description"]
             )
-        return attributes
-
-    def create_argparser(self, context=None, **kwargs) -> Cmd2ArgumentParser:
-        """Create `Cmd2ArgumentParser` for the command in provided context
-
-        Args:
-            context: A context to parse the command meta and retrieve the ArgParser
-
-        Returns:
-            Cmd2ArgumentParser
-        """
-        attributes = self._get_argparser_attributes(context)
+            attributes["epilog"] = contexted_value_parser(context, attributes["epilog"])
+            for name, metadata in attributes["arguments"].items():
+                if "comment" not in metadata:
+                    continue
+                metadata["comment"] = contexted_value_parser(
+                    context, metadata["comment"]
+                )
         return CommandHelper.create_argparser_with_attributes(**(kwargs | attributes))

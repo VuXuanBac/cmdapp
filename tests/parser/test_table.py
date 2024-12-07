@@ -18,18 +18,17 @@ TABLE_METADATA = {
     },
 }
 
-TABLE_META_INSTANCE = TableMeta("user", TABLE_METADATA["c1"])
+TABLE_META_INSTANCE = TableMeta(TABLE_METADATA["c1"])
 
 
 @with_cases(
     TableMeta,
     inputs={
-        "c1": dict(name="user", metadata=TABLE_METADATA["c1"]),
-        "c2": dict(name="123 hello world", metadata=TABLE_METADATA["c2"]),
+        "c1": TABLE_METADATA["c1"],
+        "c2": TABLE_METADATA["c2"],
     },
     expects={
         "c1": dict(
-            name="user",
             columns_in_order=[
                 COLUMN_ID,
                 "name",
@@ -41,13 +40,13 @@ TABLE_META_INSTANCE = TableMeta("user", TABLE_METADATA["c1"])
             constraints=["UNIQUE(name, dob)"],
         ),
         "c2": dict(
-            name="_23_hello_world",
             columns_in_order=[
                 COLUMN_ID,
                 "_23_invalid_name",
             ],
         ),
     },
+    pass_directly=True,
 )
 def test_table_meta_init(output: TableMeta, expect, case):
     columns = TABLE_METADATA[case]["columns"]

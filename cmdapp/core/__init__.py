@@ -1,6 +1,9 @@
 from .app import CmdApp
 from .prototype import Prototype
 from .decorator import as_command
+from .configuration import Configuration
+from .context import ContextStore
+from .response import Response
 
 DEFAULT_BUILTIN_COMMANDS = [
     "help",
@@ -40,20 +43,16 @@ def start_app(
     if not isinstance(app_prototypes, list):
         app_prototypes = [app_prototypes]
 
-    commands_with_categories = [(builtin_command_category, builtin_command_names)]
+    app_class.set_command_category(
+        *builtin_command_names, category=builtin_command_category
+    )
+    created_command_names = []
     for app_prototype in app_prototypes:
         if not isinstance(app_prototype, Prototype):
             continue
-        categories = app_prototype.apply_to(app_class)
-        commands_with_categories.extend(list(categories.items()))
+        created_command_names.extend(app_class.register_prototype(app_prototype))
     app: CmdApp = app_class(*args, **kwargs)
-    visible_commands = []
-    for category, command_names in commands_with_categories:
-        app_class.set_command_category(*command_names, category=category)
-        visible_commands.extend(command_names)
-    app.set_visible_commands(*visible_commands)
-    app.on_before_loop()
+    app.set_visible_commands(*(created_command_names + builtin_command_names))
     app.cmdloop()
-    app.on_after_loop()
     app.terminate()
     return app

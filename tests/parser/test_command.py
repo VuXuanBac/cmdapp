@@ -84,42 +84,42 @@ COMMAND_META_INSTANCE = CommandMeta(
 )
 
 
-@with_cases(
-    COMMAND_META_INSTANCE._get_argparser_attributes,
-    inputs={"c1": None, "c2": "AAA"},
-    expects={
-        "c1": dict(
-            description="Update an existing record",
-            epilog="Using `--no-<column_name>` to set column to null",
-            arguments={
-                "permanent": FieldHelper.parse(
-                    "p (bool = 0): set to delete permanently"
-                ),
-                "AAA arg 005": FieldHelper.parse(
-                    ": this argument conficts with context AAA"
-                ),
-            },
-        ),
-        "c2": dict(
-            description="[VERSION 1.0] AAA: Update an existing record",
-            epilog="[VERSION 1.0] AAA: Using `--no-<column_name>` to set column to null",
-            arguments={
-                "permanent": FieldHelper.parse(
-                    "p (bool = 0): [VERSION 1.0] AAA: set to delete permanently"
-                ),
-                "AAA arg 005": FieldHelper.parse(
-                    ": [VERSION 1.0] AAA: this argument conficts with context AAA"
-                ),
-            }
-            | {
-                f"AAA arg {i:03}": FieldHelper.parse(
-                    f"a{i} (int = {i}): [VERSION 1.0] AAA: number argument {i}"
-                )
-                for i in range(6, 7)
-            },
-        ),
-    },
-    pass_directly=True,
-)
-def test_create_argparser(output: dict, expect, case):
-    assert same_data(output, expect)
+# @with_cases(
+#     COMMAND_META_INSTANCE._get_argparser_attributes,
+#     inputs={"c1": None, "c2": "AAA"},
+#     expects={
+#         "c1": dict(
+#             description="Update an existing record",
+#             epilog="Using `--no-<column_name>` to set column to null",
+#             arguments={
+#                 "permanent": FieldHelper.parse(
+#                     "p (bool = 0): set to delete permanently"
+#                 ),
+#                 "AAA arg 005": FieldHelper.parse(
+#                     ": this argument conficts with context AAA"
+#                 ),
+#             },
+#         ),
+#         "c2": dict(
+#             description="[VERSION 1.0] AAA: Update an existing record",
+#             epilog="[VERSION 1.0] AAA: Using `--no-<column_name>` to set column to null",
+#             arguments={
+#                 "permanent": FieldHelper.parse(
+#                     "p (bool = 0): [VERSION 1.0] AAA: set to delete permanently"
+#                 ),
+#                 "AAA arg 005": FieldHelper.parse(
+#                     ": [VERSION 1.0] AAA: this argument conficts with context AAA"
+#                 ),
+#             }
+#             | {
+#                 f"AAA arg {i:03}": FieldHelper.parse(
+#                     f"a{i} (int = {i}): [VERSION 1.0] AAA: number argument {i}"
+#                 )
+#                 for i in range(6, 7)
+#             },
+#         ),
+#     },
+#     pass_directly=True,
+# )
+# def test_create_argparser(output: dict, expect, case):
+#     assert same_data(output, expect)

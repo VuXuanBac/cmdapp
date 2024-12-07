@@ -79,13 +79,15 @@ class ArgParserOptions:
             "choices",
             # "const",
             "nargs",
-            "metavar",
             default=metadata.get("default_value", None),
             dest=name,
             flags=flags,
             type=type,
             help=help,
         )
+        metavar = metadata.get("metavar", "").upper() or None
+        if metavar:
+            argparser_options["metavar"] = metavar
         # if argparser_options.get("default", None):
         #     argparser_options["required"] = False
         if is_positional:

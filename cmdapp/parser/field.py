@@ -10,6 +10,7 @@ FIELD_ATTRIBUTES_TYPES = dict(
     dtype=str,
     required=bool,
     default=None,  # depend on dtype
+    default_value=None,  # alias for default
     comment=str,
     choices=list,
     # unique=bool, # should declare it as table constraints

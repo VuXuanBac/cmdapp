@@ -3,79 +3,10 @@ from typing import Callable
 from ..parser import CommandMeta
 
 from .command import CommandBuilder
+from .context import ContextStore
 
 # command `do_` function attribute to store CommandMeta
 COMMAND_ATTRIBUTE_FOR_PROTOTYPE = "command_meta"
-
-
-def create_commands(
-    name: str,
-    prototype: Callable,
-    context_stores: dict[str, object],
-) -> dict[str, Callable]:
-    """Create commands from prototype and context stores. This will create 2 types of command:
-    - If the prototype depends on contexts:
-      - For each context, one command was parsed and created with this context
-        - The command name is in format: `do_{command_name}_{context_name}`
-        - The command function is the prototype function that is feeded with one keyword argument with name is the context type and value is the context.
-        - So inside the prototype function, we can use the context object
-      - One placeholder command for introducing the context-specific commands above
-        - Placeholder command has only one argument that is the context type of its all subcommands
-    - If the prototype NOT depends on any context:
-      - One normal command
-
-    Args:
-        name (str): Command name
-        prototype (Callable): Prototype function, that a function has an CommandMeta attribute
-        context_stores (dict[str, object]): Stores of contexts to parse the CommandMeta. Key is the context type and value is context container. Each context container also an dict that map from context name and the context itself
-
-    Returns:
-        dict[str, Callable]: Created commands (include context-specific commands) and their corresponded names
-    """
-    command_meta: CommandMeta = getattr(
-        prototype, COMMAND_ATTRIBUTE_FOR_PROTOTYPE, None
-    )
-
-    if not command_meta:
-        return {f"do_{name}": prototype}, None
-    # Remove because it is not used anymore
-    delattr(prototype, COMMAND_ATTRIBUTE_FOR_PROTOTYPE)
-
-    options = command_meta.with_argparser_options
-    category = command_meta.category
-    context_type = command_meta.context_type
-    contexts = command_meta.get_contexts(context_stores)
-
-    created_commands = {}
-    for context_value, context in contexts.items():
-        argparser = command_meta.create_argparser(context)
-        command = CommandBuilder.create_command(
-            f"{name}_{context_value}",
-            prototype,
-            argparser,
-            options,
-            **{context_type: context},
-        )
-        if command:
-            created_commands[command.__name__] = command
-    # if has any context subcommands
-    if contexts:
-        command = CommandBuilder.create_placeholder_command(
-            name,
-            list(contexts),
-            context_type,
-            default_derived_command=None,
-            description=command_meta.description,
-            epilog=command_meta.epilog,
-        )
-    # else: it is a normal command
-    else:
-        argparser = command_meta.create_argparser()
-        command = CommandBuilder.create_command(name, prototype, argparser, options)
-
-    if command:
-        created_commands[command.__name__] = command
-    return created_commands, category
 
 
 class Prototype:
@@ -85,19 +16,19 @@ class Prototype:
     - Prototype function treated as staticmethod of the Prototype class and should receive following arguments:
       - app: The CmdApp object that the created command should belongs to
       - args: A `ArgParser.Namespace` object that hold the parsed user-input-arguments
-      - custom_args: A dict that hold the unknown arguments of the command. Should declared if the `CommandMeta` object has: `custom = True`
+      - custom_args: A list that hold the unknown arguments of the command. Should declared if the `CommandMeta` object has: `custom = True`
       - kwargs: Keywords arguments that represent the context the `CommandMeta` depends on. Should declared if the `CommandMeta` object has: `dependencies`
     - One prototype function not always corresponding to one application command.
     - Each context object declared on `CommandMeta` will issue one subcommand from the prototype function. And all these subcommands will be hidden. They will be introduced by a placeholder command.
     """
 
-    def __init__(self, context_stores: dict[str, object] = None, category: str = None):
+    def __init__(self, context_store: ContextStore = None, category: str = None):
         """
         Args:
-            context_stores (dict[str, object]): Contexts to parse `CommandMeta`
+            context_stores (dict[str, object]): Object to store contexts and their data to parse `CommandMeta`
             category (str = None): Category for all commands created from this Prototype containers
         """
-        self.context_stores = context_stores
+        self.context_store = context_store
         class_name = self.__class__.__name__
         self.category = category or (
             f"{class_name[:-len(Prototype.__name__)]} Commands"
@@ -105,38 +36,103 @@ class Prototype:
             else f"{class_name} Commands"
         )
 
-    def apply_to(self, app_class) -> dict:
-        """Apply all prototypes defined in this class as commands on an app
+    def contexted_arguments_creator(
+        self, context: str, command: str = None
+    ) -> dict | None:
+        pass
+
+    def contexted_value_parser(
+        self, context: str, value: str, command: str = None
+    ) -> str:
+        pass
+
+    def _create_contexted_commands(
+        self, command_name: str, prototype: Callable, command_meta: CommandMeta
+    ) -> dict:
+        created_commands = {}
+        context_type = self.context_store.type
+        contexts = self.context_store.get_contexts(command_meta.dependencies)
+        if not contexts:
+            return None
+
+        contexted_arguments_creator = lambda context: self.contexted_arguments_creator(
+            context, command_name
+        )
+        contexted_value_parser = lambda context, value: self.contexted_value_parser(
+            context, value, command_name
+        )
+        for context, context_data in contexts.items():
+            argparser = command_meta.create_contexted_argparser(
+                context,
+                contexted_arguments_creator=contexted_arguments_creator,
+                contexted_value_parser=contexted_value_parser,
+            )
+            command = CommandBuilder.create_command(
+                f"{command_name}_{context}",
+                prototype,
+                argparser,
+                command_meta.with_argparser_options,
+                **{context_type: context_data},
+            )
+            if command:
+                created_commands[command.__name__] = command
+
+        command = CommandBuilder.create_placeholder_command(
+            command_name,
+            list(contexts),
+            context_type,
+            default_derived_command=None,
+            description=command_meta.description,
+            epilog=command_meta.epilog,
+        )
+        if command:
+            created_commands[command.__name__] = command
+        return created_commands
+
+    def create_commands(
+        self, command_name: str, prototype: Callable
+    ) -> tuple[dict[str, Callable], str]:
+        """Create commands from prototype and context stores. This will create 2 types of commands:
+        - If the prototype depends on contexts:
+            - For each context, one command was parsed and created with this context
+                - The command name is in format: `do_{command_name}_{context}`
+                - The command function is the prototype function that is fed with one keyword argument with name is the context type and value is the context data.
+                - So inside the prototype function, we can use the context data
+            - One placeholder command for introducing the context-specific commands created above
+                - Placeholder command has single argument that is the context type of its all subcommands
+        - If the prototype NOT depends on any context:
+            - One normal command
 
         Args:
-            app_class (Class object): App class to receive commands created from prototypes
+            command_name (str): Command name
+            prototype (Callable): Prototype function, that a function has an CommandMeta attribute
 
         Returns:
-            All main commands (not include context-specific commands) in their categories (if prototype has no category, it belongs to None category)
+            tuple:
+            - dict[str, Callable]: Created commands (include context-specific commands) and their corresponded names
+            - str: Category for created commands
         """
+        command_meta: CommandMeta = getattr(
+            prototype, COMMAND_ATTRIBUTE_FOR_PROTOTYPE, None
+        )
 
-        command_categories = {}
-        cls = self.__class__
-        attributes = dir(cls)
-        prototypes = {
-            key[3:]: getattr(cls, key) for key in attributes if key.startswith("do_")
-        }
-        for command_name, prototype in prototypes.items():
-            if not callable(prototype):
-                continue
-            commands, category = create_commands(
-                command_name, prototype, self.context_stores
+        if not command_meta:
+            return {f"do_{command_name}": prototype}, None
+        # Remove because it is not used anymore
+        delattr(prototype, COMMAND_ATTRIBUTE_FOR_PROTOTYPE)
+
+        created_commands = {}
+        # it should be parsed with contexts
+        if command_meta.dependencies:
+            created_commands = self._create_contexted_commands(
+                command_name, prototype, command_meta
             )
-            for method_name, method in commands.items():
-                if hasattr(app_class, method_name):
-                    raise ValueError(
-                        f"the attribute [{method_name}] has been used on [{app_class}]",
-                        "try another name for the command",
-                    )
-                setattr(app_class, method_name, method)
-            category = category or self.category
-            if category in command_categories:
-                command_categories[category].append(command_name)
-            else:
-                command_categories[category] = [command_name]
-        return command_categories
+        # it is a normal command or fail to created contexted commands
+        if not created_commands:
+            argparser = command_meta.create_argparser()
+            command = CommandBuilder.create_command(
+                command_name, prototype, argparser, command_meta.with_argparser_options
+            )
+            if command:
+                created_commands[command.__name__] = command
+        return created_commands, command_meta.category

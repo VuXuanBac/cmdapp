@@ -26,7 +26,7 @@ class SQLBuilder:
         )
 
     @staticmethod
-    def create_table(table: TableMeta):
+    def create_table(name: str, table: TableMeta):
         constraints = [c.strip() for c in table.constraints if c and not c.isspace()]
         constraints = (",\n" if constraints else "") + ",\n".join(constraints)
 
@@ -34,7 +34,7 @@ class SQLBuilder:
             [SQLBuilder.create_column(field) for field in table.columns.values()]
         )
 
-        return f"CREATE TABLE IF NOT EXISTS {table.name} (\n{commands}{constraints}\n)"
+        return f"CREATE TABLE IF NOT EXISTS {name} (\n{commands}{constraints}\n)"
 
     @staticmethod
     def insert(table: str, data: dict | list[dict]):
