@@ -47,13 +47,9 @@ class TableHelper:
 
 
 class TableMeta:
-    def __init__(self, name: str, metadata: dict):
-        self.name = FieldHelper.sanitize_name(name)
-        singular_name = metadata.get("singular", name)
-        plural_name = metadata.get("plural", singular_name + "s")
-        self.name_with_number = lambda number: (
-            singular_name if int(number) == 1 else plural_name
-        )
+    def __init__(self, metadata: dict):
+        self.singular = metadata.get("singular", "")
+        self.plural = metadata.get("plural", "")
 
         self.constraints = TableHelper.parse_constraints(metadata)
 

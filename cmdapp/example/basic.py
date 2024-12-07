@@ -1,5 +1,5 @@
-from cmdapp.core import start_app, CmdApp, as_command, Prototype
-from cmdapp.render import Response, Template
+from cmdapp.core import start_app, as_command, CmdApp, Prototype, Response
+from cmdapp.render import Template
 from datetime import datetime
 
 
@@ -15,7 +15,6 @@ class CustomPrototype(Prototype):
     def do_message(app: CmdApp, args, custom: list[str]):
         template = Template(args.template)
         destination = args.destination
-        method = app.poutput if destination == "stdout" else app.perror
         _args, _kwargs = [], {}
         keyword = None
         for item in custom:
@@ -27,12 +26,13 @@ class CustomPrototype(Prototype):
                     keyword = None
                 else:
                     _args.append(item)
-        method(Response.message(template, *_args, **_kwargs))
+        dest = "output" if destination == "stdout" else "error"
+        return Response(app).on(dest).message(template, *_args, **_kwargs)
 
     @as_command(description="Echo datetime and system info")
     def do_now(app: CmdApp, args):
         template = Template("+[Now: ]*/M[{timestamp}]")
-        app.poutput(Response.message(template, timestamp=datetime.now()))
+        return Response(app).message(template, timestamp=datetime.now())
 
 
 if __name__ == "__main__":

@@ -1,6 +1,3 @@
-import sqlite3
-from collections import namedtuple
-
 from ..parser import TableMeta
 
 from .connection import DbConnection
@@ -11,24 +8,32 @@ class Database:
     def __init__(
         self,
         database_path: str,
-        schema: dict[str, dict],
+        schema: dict[str, TableMeta],
         *,
+        aliases: dict[str, str] = {},
         row_factory_name: str = "dict",
     ):
         self.conn = DbConnection(database_path, row_factory=row_factory_name)
-        tables = [
-            Table(self, TableMeta(name, metadata)) for name, metadata in schema.items()
+        tables_list = [
+            Table(self.conn, name, table_meta) for name, table_meta in schema.items()
         ]
-        self.tables = {table.name: table for table in tables}
+        self.tables = {table.name: table for table in tables_list}
+        sanitized_aliases = {
+            key: value for key, value in aliases.items() if value in self.tables
+        }
+        self.aliases = {
+            table.human_name(1): table.name for table in tables_list
+        } | sanitized_aliases
 
     def __getattr__(self, name):
         return getattr(self.conn, name)
 
     def __getitem__(self, name):
-        return self.tables[name]
+        table_name = self.aliases.get(name, name)
+        return self.tables[table_name]
 
     def __contains__(self, key):
-        return key in self.tables
+        return key in self.tables or key in self.aliases
 
     def get_errors(self):
         errors = []

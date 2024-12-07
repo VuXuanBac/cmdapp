@@ -1,9 +1,8 @@
 import random
 from datetime import timedelta, datetime
 
-from cmdapp.core import as_command, Prototype
+from cmdapp.core import as_command, Prototype, Response
 from cmdapp.utils import Hash
-from cmdapp.render import Response
 
 from .context import *
 
@@ -24,12 +23,10 @@ class ExtendedPrototype(Prototype):
         )
         table = app.database[table_name]
         if not table:
-            return app.perror(
-                Response.message(
-                    TEMPLATES["found_info"],
-                    negative=True,
-                    what=f"table named {table_name}",
-                )
+            return (
+                Response(app)
+                .on("error")
+                .message("found", negative=True, what=f"table named {table_name}")
             )
         data = []
         for i in range(total):
@@ -50,13 +47,17 @@ class ExtendedPrototype(Prototype):
         message_kwargs = dict(
             action="SEED",
             what=table.name,
-            result=f"{success}/{len(data)} {table.display_name(success)} were created",
+            result=f"{success}/{len(data)} {table.human_name(success)} were created",
         )
         if success > 0:
-            app.poutput(Response.message(TEMPLATES["success"], **message_kwargs))
+            return Response(app).message("success", **message_kwargs)
         else:
-            app.perror(Response.message(TEMPLATES["error"], **message_kwargs))
-        app.print_database_errors()
+            return (
+                Response(app)
+                .on("error")
+                .message("error", **message_kwargs)
+                .concat(BasePrototype.print_database_errors(app))
+            )
 
 
 if __name__ == "__main__":
@@ -65,6 +66,7 @@ if __name__ == "__main__":
         app_name="User Manager",
         app_class=BaseApp,
         # Apply commands from BasePrototype and ExtendedPrototype
-        app_prototypes=[BasePrototype({"table": database.tables}), ExtendedPrototype()],
+        app_prototypes=[BasePrototype(database), ExtendedPrototype()],
         database=database,
+        response_formatter=ResponseFormatter(TEMPLATES),
     )

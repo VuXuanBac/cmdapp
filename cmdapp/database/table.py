@@ -1,4 +1,5 @@
 import sqlite3
+
 from .connection import DbConnection
 from .cursor import CursorHelper
 from .sql import SQLBuilder
@@ -7,18 +8,26 @@ from .constants import *
 
 from ..parser import (
     TableMeta,
+    FieldHelper,
     COLUMN_ID,
     COLUMN_DELETE,
 )
 
 
 class Table:
-    def __init__(self, connection: DbConnection, table_meta: TableMeta) -> None:
+    def __init__(
+        self, connection: DbConnection, name: str, table_meta: TableMeta
+    ) -> None:
         self.conn = connection
         self.table_meta = table_meta
-        self.name = table_meta.name
-        self.display_name = table_meta.name_with_number
+        self.name = FieldHelper.sanitize_name(name)
+        singular_name = table_meta.singular or name
+        plural_name = table_meta.plural or singular_name + "s"
+        self._human_name = (singular_name, plural_name)
         self.errors = []
+
+    def human_name(self, number=1):
+        return self._human_name[int(int(number) != 1)]
 
     def execute(self, sql: str, data=None):
         return self.conn.execute(sql, data=data, on_error=self.on_error)
@@ -56,9 +65,12 @@ class Table:
     def __getattr__(self, name):
         return getattr(self.table_meta, name)
 
+    def __contains__(self, name):
+        return name in self.table_meta
+
     def prepare(self):
         self.refresh()
-        sql = SQLBuilder.create_table(self.table_meta)
+        sql = SQLBuilder.create_table(self.name, self.table_meta)
         cursor = self.execute(sql)
         return CursorHelper.as_status(cursor, on_rowcount=False)
 

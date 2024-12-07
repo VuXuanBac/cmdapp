@@ -5,8 +5,9 @@ from ..utils import Json, Hash
 
 
 class FileFormat:
-    def support_file_format():
-        attributes = dir(FileFormat)
+    @classmethod
+    def support_file_format(cls):
+        attributes = dir(cls)
         method_prefix = "write_"
         return [
             key[len(method_prefix) :]

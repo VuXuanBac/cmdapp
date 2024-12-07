@@ -111,12 +111,17 @@ class Hash:
 
 
 class Array:
-    def find(d: dict, v, default):
+    def find(d: list | tuple | set, v, default):
         return v if v in d else default
 
     def unpack_one(items: list | tuple):
-        if hasattr(items, "__len__"):
-            return list(items)[0] if len(items) == 1 else list(items)
+        return list(items)[0] if len(items) == 1 else list(items)
+
+    def filter(items: list | tuple | set, *, match=None, not_match=None):
+        if callable(match):
+            return [item for item in items if match(item)]
+        if callable(not_match):
+            return [item for item in items if not not_match(item)]
         return items
 
 

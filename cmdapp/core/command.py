@@ -31,6 +31,7 @@ class CommandBuilder:
             handler(*args, **kwargs)
 
         command.__name__ = f"do_{name}"
+        command.__doc__ = argparser.description
         return with_argparser(argparser, **with_argparser_options)(command)
 
     def create_placeholder_command(
@@ -78,17 +79,15 @@ class CommandBuilder:
             choices=derived_command_names,
             default=default_derived_command,
         )
-        # argparser.add_argument("-h", "--help", action="help")
 
         def command(app, args, subargs):
             derived_name = getattr(args, argument_name, default_derived_command)
-            # if derived_name == "-h" or derived_name == "--help":
-            #     return app.print_help()
             method = getattr(app, f"do_{name}_{derived_name}", None)
             if method:
                 return method(" ".join(subargs))
 
         command.__name__ = f"do_{name}"
+        command.__doc__ = description
         return with_argparser(argparser, with_unknown_args=True, preserve_quotes=True)(
             command
         )

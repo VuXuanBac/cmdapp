@@ -41,9 +41,11 @@ def assert_result(errors, output, expect: dict, case=None):
 
 def test_prepare():
     database_schema = {
-        TABLE_NAME: TABLE_SCHEMA,
-        "bad": dict(
-            columns={"group": "(*str): group name of users. column name is invalid"}
+        TABLE_NAME: TableMeta(TABLE_SCHEMA),
+        "bad": TableMeta(
+            dict(
+                columns={"group": "(*str): group name of users. column name is invalid"}
+            )
         ),
     }
     database = Database(":memory:", database_schema)
@@ -71,7 +73,7 @@ for i in range(10):
 
 
 def prepare_table(with_populate=True, with_delete=False):
-    database = Database(":memory:", {TABLE_NAME: TABLE_SCHEMA})
+    database = Database(":memory:", {TABLE_NAME: TableMeta(TABLE_SCHEMA)})
     table = database[TABLE_NAME]
     table.prepare()
     if with_populate or with_delete:
