@@ -1,5 +1,5 @@
 import sqlite3
-from .cursor import RowFactory
+from .helper import RowFactory
 
 # Cursor is like a ITERATOR that can traversal over the result records
 
@@ -18,7 +18,7 @@ class DbConnection:
         result = None
         try:
             self.conn.execute("BEGIN TRANSACTION")
-            result: sqlite3.Cursor = handler(self.conn)
+            result = handler(self.conn)
             self.conn.commit()
         except sqlite3.Error as error:
             self.conn.rollback()

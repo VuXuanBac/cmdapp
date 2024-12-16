@@ -1,6 +1,6 @@
-from datetime import datetime
 from tests.helper import *
-from cmdapp.parser.field import *
+from cmdapp.parser import ArgParserOptions, COLUMN_ID
+from cmdapp.types import DTypes
 
 FIELD_DATA = {
     "c1": dict(name="greet", metadata="g, hi(*str[telex] = hello world) : greeting"),
@@ -89,7 +89,6 @@ def test_argparser_flags(output, expect, case):
             required=True,
             help="[array] [not null]",
             type=str,
-            default=None,
             nargs=5,
             dest="work",
         ),

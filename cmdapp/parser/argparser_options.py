@@ -63,8 +63,10 @@ class ArgParserOptions:
         )
         is_positional = not bool(flags)
         # For string and array, support convert item dtype via `proc`
-        _type = metadata.get("proc", "str") if dtype in ["str", "array"] else dtype
-        type = DTypes.text_converter(_type)
+        subtype = (
+            metadata.get("proc", "str") if dtype in ["str", "array", "json"] else dtype
+        )
+        type = DTypes.text_converter(subtype, dtype)
 
         help = ArgParserOptions.argparser_help(
             dtype=dtype,
@@ -79,12 +81,8 @@ class ArgParserOptions:
             "choices",
             # "const",
             "nargs",
-            default=metadata.get("default_value", None),
-            dest=name,
-            flags=flags,
-            type=type,
-            help=help,
-        )
+            default_value="default",
+        ) | dict(dest=name, flags=flags, type=type, help=help)
         metavar = metadata.get("metavar", "").upper() or None
         if metavar:
             argparser_options["metavar"] = metavar
@@ -94,6 +92,6 @@ class ArgParserOptions:
             argparser_options.pop("required", None)
             if argparser_options.get("default", None):
                 argparser_options.setdefault("nargs", "?")
-        if dtype == "array":
+        if dtype in ["json", "array"]:
             argparser_options.setdefault("nargs", "*")
         return argparser_options

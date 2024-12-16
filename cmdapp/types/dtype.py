@@ -1,3 +1,4 @@
+import re
 from ..utils import Text, Json
 
 from .sqlite import (
@@ -32,6 +33,16 @@ DTYPE2TYPE = {
     "datetime": datetime,
 }
 
+KEY_VALUE_PATTERN = r"^(.+)[=:](.+)$"
+
+
+def convert_key_value(arg: str, subtype: str) -> tuple:
+    matched = re.match(KEY_VALUE_PATTERN, arg)
+    if not matched:
+        return (None, arg)
+    key, value = matched.groups()
+    return (key, TEXT_CONVERTERS[subtype](value))
+
 
 class DTypes:
     @staticmethod
@@ -56,7 +67,9 @@ class DTypes:
         return get_python_converter(dtype)
 
     @staticmethod
-    def text_converter(dtype: str):
+    def text_converter(dtype: str, context_dtype: str = None):
+        if context_dtype == "json" and dtype != "json":
+            return lambda value: convert_key_value(value, dtype)
         return TEXT_CONVERTERS.get(dtype, None)
 
     def cast_to_sqlite(value, dtype: str, default=None):

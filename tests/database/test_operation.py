@@ -7,6 +7,7 @@ from cmdapp.parser import *
 
 TABLE_NAME = "book"
 TABLE_SCHEMA = {
+    "name": TABLE_NAME,
     "columns": {
         "title": {"dtype": "str", "required": True, "comment": "title of the book"},
         "authors": {
@@ -22,7 +23,7 @@ TABLE_SCHEMA = {
             "choices": ["image", "text", "remake"],
         },
     },
-    "meta-columns": [COLUMN_CREATE, COLUMN_UPDATE, COLUMN_DELETE],
+    "meta_columns": [COLUMN_CREATE, COLUMN_UPDATE, COLUMN_DELETE],
     "constraints": ["UNIQUE(title, year)", "UNIQUE(pdf)"],
 }
 
@@ -40,14 +41,13 @@ def assert_result(errors, output, expect: dict, case=None):
 
 
 def test_prepare():
-    database_schema = {
-        TABLE_NAME: TableMeta(TABLE_SCHEMA),
-        "bad": TableMeta(
-            dict(
-                columns={"group": "(*str): group name of users. column name is invalid"}
-            )
+    database_schema = [
+        TableMeta(**TABLE_SCHEMA),
+        TableMeta(
+            name="bad",
+            columns={"group": "(*str): group name of users. column name is invalid"},
         ),
-    }
+    ]
     database = Database(":memory:", database_schema)
     output = database.prepare()
     expect = {
@@ -73,7 +73,7 @@ for i in range(10):
 
 
 def prepare_table(with_populate=True, with_delete=False):
-    database = Database(":memory:", {TABLE_NAME: TableMeta(TABLE_SCHEMA)})
+    database = Database(":memory:", [TableMeta(**TABLE_SCHEMA)])
     table = database[TABLE_NAME]
     table.prepare()
     if with_populate or with_delete:
@@ -128,13 +128,13 @@ def prepare_table(with_populate=True, with_delete=False):
 def test_insert(table: Table, output, expect, case):
     if case.startswith("Error"):
         expect["errors"] = [error | {"table": table.name} for error in expect["errors"]]
-    assert_result(table.errors, output, expect, case)
+    assert_result(table.errors, int(output > 0), expect, case)
     if case == "Good":
-        last_record = table.last()
+        last_record = table.get(output)
         assert last_record["title"] == "Hello World 1"
         assert last_record["type"] == "image"
     if case == "GoodWithInvalidType":
-        last_record = table.last()
+        last_record = table.get(output)
         assert last_record["title"] == "Hello World 2"
         assert last_record["type"] == "remake"
         assert last_record["year"] == None
@@ -384,3 +384,58 @@ def test_query(output, expect, case):
         for x in output
     ]
     assert output_without_meta_fields == get_saved_value(expect)
+
+
+@with_cases(
+    prepare_table().translate,
+    inputs={
+        "SingleMatch": ["year", 1924, 1929, 1934, 1939],
+        "MultiMatch": ["type", "image", "remake"],
+        "NoMatch": ["year"] + list(range(1920, 1925)),
+        "NoValues": ["year"],
+        "FullRecord": ["year", 1924, 1929, 1934, 1939, dict(full_record=True)],
+    },
+    expects={
+        "SingleMatch": {1929: [5], 1934: [10]},
+        "MultiMatch": {"image": [1, 4, 7, 10], "remake": [3, 6, 9]},
+        "NoMatch": {},
+        "NoValues": {},
+        "FullRecord": {1929: [5], 1934: [10]},
+    },
+)
+def test_translate(output, expect, case):
+    if case == "FullRecord":
+        for key, records in output.items():
+            for index, record in enumerate(records):
+                assert COLUMN_CREATE in record
+                assert COLUMN_UPDATE in record
+                assert COLUMN_DELETE in record
+                assert record[COLUMN_ID] == expect[key][index]
+                data_record = {
+                    k: v
+                    for k, v in record.items()
+                    if k not in [COLUMN_CREATE, COLUMN_UPDATE, COLUMN_DELETE, COLUMN_ID]
+                }
+                assert same_data(data_record, ITEMS[expect[key][index] - 1])
+    else:
+        assert same_data(output, expect)
+
+
+@with_cases(
+    prepare_table().get_columns,
+    inputs={
+        "SingleColumn": dict(columns=["year"], item_ids=[3, 5, 8, 13]),
+        "MultipleColumns": dict(columns=["type", "year"], item_ids=[3, 5, 13]),
+        "WithoutIds": dict(columns=["year"]),
+    },
+    expects={
+        "SingleColumn": {3: 1927, 5: 1929, 8: 1932},
+        "MultipleColumns": {
+            3: dict(type="remake", year=1927),
+            5: dict(type="text", year=1929),
+        },
+        "WithoutIds": {(i + 1): (1925 + i) for i in range(len(ITEMS))},
+    },
+)
+def test_get_columns(output, expect, case):
+    assert same_data(output, expect)

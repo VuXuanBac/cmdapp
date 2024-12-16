@@ -69,7 +69,9 @@ def get_output(caller, input, pass_directly=False):
 
 
 ########## Decorators ##########
-def with_cases(handler, inputs: dict[str], expects: dict[str], pass_directly=False):
+def with_cases(
+    handler, inputs: dict[str], expects: dict[str], pass_directly=False, **kwargs
+):
     """A decorator to test one function with different named-cases
     - The decorated function should have following arguments:
         - output: Runned output or a tuple of (error type, str(error)) if have any exception
@@ -82,12 +84,15 @@ def with_cases(handler, inputs: dict[str], expects: dict[str], pass_directly=Fal
         inputs (dict[str]): Inputs to the method with name of the case
         expects (dict[str]): Expected output with name of the case
         pass_directly (bool, optional): True to pass the input dict directly (one argument) to the method. Defaults to False.
+        kwargs: Default arguments to `input`. Only used if `input` is a dict and not pass directly (means, it is passed by keywords)
     """
 
     def decorator(func):
         def body():
             for case, input in inputs.items():
                 try:
+                    if kwargs and isinstance(input, dict) and not pass_directly:
+                        input = kwargs | input
                     output = get_output(handler, input, pass_directly=pass_directly)
                 except Exception as ex:
                     print("EXCEPTION", ex)

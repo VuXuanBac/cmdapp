@@ -50,12 +50,12 @@ class ExtendedPrototype(Prototype):
             result=f"{success}/{len(data)} {table.human_name(success)} were created",
         )
         if success > 0:
-            return Response(app).message("success", **message_kwargs)
+            return Response(app).message("action", style="success", **message_kwargs)
         else:
             return (
                 Response(app)
                 .on("error")
-                .message("error", **message_kwargs)
+                .message("action", style="error", **message_kwargs)
                 .concat(BasePrototype.print_database_errors(app))
             )
 

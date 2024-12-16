@@ -58,3 +58,19 @@ def test_combine():
         condition.build(),
         "NOT age > 15 AND subject IN ('maths', 'physics') OR NOT score BETWEEN 4 AND 7",
     )
+
+
+def test_with_group():
+    condition = (
+        SQLCondition("age", SQLOperators.GREATER_THAN, 15, negative=True)
+        .AND("subject", SQLOperators.IN, ["maths", "physics"])
+        .AND_GROUP(
+            SQLCondition("score", SQLOperators.BETWEEN, (1, 4)).OR(
+                "score", SQLOperators.BETWEEN, (8, 10)
+            )
+        )
+    )
+    assert same_data(
+        condition.build(),
+        "NOT age > 15 AND subject IN ('maths', 'physics') AND ( score BETWEEN 1 AND 4 OR score BETWEEN 8 AND 10 )",
+    )
