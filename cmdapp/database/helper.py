@@ -5,12 +5,28 @@ import sqlite3
 from ..utils import Array
 
 
+def parse_error(error: sqlite3.Error | Exception):
+    error_type = type(error).__name__
+    message = str(error)
+    if isinstance(error, sqlite3.Error):
+        error_name = (
+            error.sqlite_errorname if hasattr(error, "sqlite_errorname") else error_type
+        )
+    else:
+        error_name = error_type
+    return (error_name, message)
+
+
 class CursorHelper:
     @staticmethod
     def as_status(cursor: sqlite3.Cursor | None, on_rowcount=True):
         if on_rowcount:
             return cursor and cursor.rowcount > 0
         return bool(cursor)
+
+    @staticmethod
+    def as_id(cursor: sqlite3.Cursor | None):
+        return cursor.lastrowid if cursor else 0
 
     @staticmethod
     def as_rowcount(cursor: sqlite3.Cursor | None):

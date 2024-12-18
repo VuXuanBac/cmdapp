@@ -2,28 +2,24 @@ from ..parser import TableMeta
 
 from .connection import DbConnection
 from .table import Table
+from .helper import CursorHelper
 
 
 class Database:
     def __init__(
         self,
         database_path: str,
-        schema: dict[str, TableMeta],
+        schema: list[TableMeta],
         *,
-        aliases: dict[str, str] = {},
         row_factory_name: str = "dict",
     ):
         self.conn = DbConnection(database_path, row_factory=row_factory_name)
-        tables_list = [
-            Table(self.conn, name, table_meta) for name, table_meta in schema.items()
-        ]
-        self.tables = {table.name: table for table in tables_list}
-        sanitized_aliases = {
-            key: value for key, value in aliases.items() if value in self.tables
+        self.tables = {
+            table_meta.name: Table(self.conn, table_meta) for table_meta in schema
         }
         self.aliases = {
-            table.human_name(1): table.name for table in tables_list
-        } | sanitized_aliases
+            table.human_name(1): name for name, table in self.tables.items()
+        }
 
     def __getattr__(self, name):
         return getattr(self.conn, name)
@@ -34,6 +30,13 @@ class Database:
 
     def __contains__(self, key):
         return key in self.tables or key in self.aliases
+
+    def with_transaction(self, handler, on_error=None):
+        return self.conn.with_transaction(handler, on_error)
+
+    def query(self, sql: str, data: dict = None):
+        cursor = self.conn.execute(sql, data)
+        return CursorHelper.as_objects(cursor)
 
     def get_errors(self):
         errors = []

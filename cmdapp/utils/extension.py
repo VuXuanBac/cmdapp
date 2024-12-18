@@ -27,36 +27,31 @@ class Hash:
                 result[k] = d2[k]
         return result | {k: v for k, v in d2.items() if k not in result}
 
-    def filter(d: dict, *keys, **kwargs) -> dict:
-        """Return new dict that contains all items from `kwargs` and items from `d` that has key in `keys`
-        - Items with key in `keys` has higher priority than `kwargs`, on same key.
-        Think of it as: Filter keys from source and merge with new dict for unset keys
+    def filter(d: dict, *args, rename: dict[str, str] = {}) -> dict:
+        """Filter items with keys in `args` and rename items with keys in `rename`
 
         Args:
             d (dict): The source dict
-            keys: Key to extract from the source dict
-            kwargs: key = default. Default value for key that not in the source dict
+            args (list[str]): Allowed keys
+            rename (dict[str, str]): key = new_name
 
         Returns:
-            dict: New dict with all items from the source and the `kwargs` with the key in `keys` or `kwargs`
-
-        Examples:
-        - Dict.filter({'a': 1, 'b': 2, 'c': 3}, 'a', 'e', d=10, b=5, a=4) ==> {'d': 10, 'b': 5, 'a': 1}
+            dict: New dict with all items with keys in `args` and renamed keys in `rename`
         """
-        return kwargs | {k: v for k, v in d.items() if k in keys}
+        return {rename.get(k, k): v for k, v in d.items() if k in args or k in rename}
 
-    def ignore(d: dict, *args, **kwargs) -> dict:
-        """Return new dict that contains all items from a dict that the key NOT in `args`
+    def ignore(d: dict, *args, rename: dict[str, str] = {}) -> dict:
+        """Return items with keys not in `args` and rename items with keys in `rename`
 
         Args:
             d (dict): The source dict
-            args: The key to ignore
-            kwargs (dict[str, str]): Keys to rename
+            args (list[str]): Not allowed keys
+            rename (dict[str, str]): key = new_name
 
         Returns:
-            dict: New dict with all items from the source but the key not in `args`
+            dict: New dict with all items with keys not in `args` and renamed keys in `rename`
         """
-        return {kwargs.get(k, k): v for k, v in d.items() if k not in args}
+        return {rename.get(k, k): v for k, v in d.items() if k not in args}
 
     def remove(d: dict, *values) -> dict:
         """Remove all items that its value is in values
@@ -88,22 +83,28 @@ class Hash:
             result.append(d[k] if k in d else v)
         return result[0] if len(result) == 1 else (result or None)
 
-    def get_as_dict(d: dict, **kwargs) -> dict:
-        """Get value from key. Return default if the dict does not have that key.
+    def get_as_dict(d: dict, *args, **kwargs) -> dict:
+        """Filter items with keys in `args` and default value (for missing keys) provided by `kwargs`
 
         Args:
             d (dict): The source dict
+            args: key to filter, add None value for missing key
             kwargs: key = default
 
         Returns:
             dict: New dict with the keys are from kwargs
+
+        Examples:
+        - Dict.get_as_dict({'a': 1, 'b': 2, 'c': 3}, 'a', 'e', d=10, b=5, a=4) ==> {'d': 10, 'b': 2, 'a': 1, 'e': None}
         """
-        return {key: d.get(key, default) for key, default in kwargs.items()}
+        return {k: d.get(k) for k in args} | {
+            key: d.get(key, default) for key, default in kwargs.items()
+        }
 
     def dig(d: dict, *path: str, default=None):
         current = d
         for key in path:
-            if key in current:
+            if isinstance(current, dict) and key in current:
                 current = current[key]
             else:
                 return default
@@ -131,9 +132,12 @@ class Json:
             return json.loads(data, **kwargs)
         return json.load(data, **kwargs)
 
-    def dump(data: str | bytes, **kwargs):
+    def dump(data, **kwargs):
         return json.dumps(
-            data, default=kwargs.pop("default", None) or Json.serializer, **kwargs
+            data,
+            default=kwargs.pop("default", None) or Json.serializer,
+            ensure_ascii=False,
+            **kwargs,
         )
 
     def serializer(obj):

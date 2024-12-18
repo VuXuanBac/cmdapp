@@ -37,7 +37,7 @@ class SQLCondition:
         self.raw = [(condition, negative, force_quote)]
 
     def AND(self, *condition, negative: bool = False, force_quote: bool = False):
-        """Concate with previous statement by an AND operator
+        """Concat with previous statement by an AND operator
 
         Args:
             condition (tuple): tuple of 2 or 3 parts in condition: <COLUMN> <OPERATOR> <DATA>?
@@ -51,7 +51,7 @@ class SQLCondition:
         return self
 
     def OR(self, *condition, negative: bool = False, force_quote: bool = False):
-        """Concate with previous statement by an AND operator
+        """Concat with previous statement by an OR operator
 
         Args:
             condition (tuple): tuple of 2 or 3 parts in condition: <COLUMN> <OPERATOR> <DATA>?
@@ -62,6 +62,14 @@ class SQLCondition:
             self
         """
         self.raw.extend(["OR", (condition, negative, force_quote)])
+        return self
+
+    def AND_GROUP(self, sql_condition: "SQLCondition"):
+        self.raw.extend(["AND", "("] + sql_condition.raw + [")"])
+        return self
+
+    def OR_GROUP(self, sql_condition: "SQLCondition"):
+        self.raw.extend(["OR", "("] + sql_condition.raw + [")"])
         return self
 
     def build(self) -> str:

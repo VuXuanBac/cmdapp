@@ -17,7 +17,7 @@ class Response:
         return self
 
     def __getattr__(self, name: str):
-        formatter = getattr(self.app.response_formatter, name)
+        formatter = getattr(self.app.response_formatter, name, None)
         if not name.startswith("_") and callable(formatter):
 
             def format(*args, **kwargs):
@@ -27,7 +27,7 @@ class Response:
 
             return format
         else:
-            return self.send
+            return None
 
     def send(self, *args, **kwargs):
         self.handler(*args, **kwargs)

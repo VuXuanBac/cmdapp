@@ -4,47 +4,44 @@ from cmdapp.database import Database
 from cmdapp.parser.table import TableMeta
 from cmdapp.render import Template, ResponseFormatter
 
-DATABASE_SCHEMA = {
-    "person": TableMeta(
-        {
-            "plural": "people",
-            "columns": {
-                "name": "n (*str[telex]): name of the record",
-                "team_id": "t, team (*int): id of the team that the record belongs to",
-                "gender": 'g (str: ["male", "female", "other"]): gender',
-                "dob": {
-                    "annotation": "(datetime): date of birth",
-                    "metavar": "birthday",
-                },
+DATABASE_SCHEMA = [
+    TableMeta(
+        name="person",
+        plural="people",
+        columns={
+            "name": "n (*str[telex]): name of the record",
+            "team_id": "t, team (*int): id of the team that the record belongs to",
+            "gender": 'g (str: ["male", "female", "other"]): gender',
+            "dob": {
+                "annotation": "(datetime): date of birth",
+                "metavar": "birthday",
             },
-            "meta-columns": ["created_at", "updated_at", "deleted_at"],
-            "constraints": ["UNIQUE(name, team_id)"],
-        }
+        },
+        meta_columns=["created_at", "updated_at", "deleted_at"],
+        constraints=["UNIQUE(name, team_id)"],
     ),
-    "team": TableMeta(
-        {
-            "singular": "group",
-            "columns": {"name": "n (*str[telex]): name of the record"},
-            "meta-columns": ["created_at", "updated_at", "deleted_at"],
-            "constraints": ["UNIQUE(name)"],
-        }
+    TableMeta(
+        name="team",
+        singular="group",
+        columns={"name": "n (*str[telex]): name of the record"},
+        meta_columns=["created_at", "updated_at", "deleted_at"],
+        constraints=["UNIQUE(name)"],
     ),
-}
-
-PATTERNS = {
-    "action": "[ on {action}][ {what}][ within {scope}][ with {argument}][ = {value}][ because {reason}][: |result]^[{result}]",
-    "argument": "[ The argument][ \[{argument}\]][ is {status}][ because {reason}][. {result}][. {recommend}]",
-    "found": "/b[NOT |negative][FOUND][ {count}][/{total}][ {what}][ with {field}][: {items}]",
-    "exception": "/*R[ERROR][ \[{type}\]][: |message]*Y['{message}']/*R[ on executing:\n|command]@C[{command}]@R[\n with |argument]@Y[{argument}]",
-}
+]
 
 TEMPLATES = {
-    "success": Template(f"/G[SUCCESS]{PATTERNS['action']}"),
-    "error": Template(f"/*R[ERROR]{PATTERNS['action']}"),
-    "argument_warning": Template(f"/Y[WARNING]{PATTERNS['argument']}"),
-    "found": Template(PATTERNS["found"]),
-    "exception": Template(PATTERNS["exception"]),
-    "info": Template("/b[{0}]"),
+    "action": Template(
+        "+[{style}]@[ on {action}][ {what}][ within {scope}][ with {argument}][ = {value}][ because {reason}][: |result][{result}]"
+    ),
+    "argument": Template(
+        "[ The argument][ \[{argument}\]][ is {status}][ because {reason}][. {result}][. {recommend}]"
+    ),
+    "found": Template(
+        "[NOT |negative][FOUND][ {count}][/{total}][ {what}][ with {field}][: {items}]"
+    ),
+    "exception": Template(
+        "/*R[ERROR][ \[{type}\]][: |message]*Y['{message}']/*R[ on executing:\n|command]@C[{command}]@R[\n with |argument]@Y[{argument}]"
+    ),
 }
 
 

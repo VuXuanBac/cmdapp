@@ -1,6 +1,6 @@
-from datetime import datetime
 from tests.helper import *
-from cmdapp.parser.field import *
+from datetime import datetime
+from cmdapp.parser import COLUMN_ID, FieldMeta
 
 FIELD_DATA = {
     "c1": dict(name="greet", metadata="g, hi(*str[telex] = hello world) : greeting"),
@@ -45,7 +45,7 @@ FIELD_DATA = {
             ),
         ),
         "c2": dict(
-            name="_23____12",
+            name="123 -@#12",
             metadata=dict(
                 dtype="str",
                 required=True,

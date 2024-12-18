@@ -3,7 +3,9 @@ from ..types import DTypes
 from ..utils import Hash
 
 ## Notes on case `) :` inside `datatype` part, it will be considered as comment.
-ANNOTATION_PATTERN = r"^(?:\[\s*(\w+)\s*\])?([^():]*?)(?:\((.+?)\))?\s*(?::([\s\S]+))?$"
+ANNOTATION_PATTERN = (
+    r"^(?:\[\s*([^\[\]]+?)\s*\])?([^():]*?)(?:\((.+?)\))?\s*(?::([\s\S]+))?$"
+)
 ################# <flags> (<datatype>): <comment>
 ANNOTATION_DATATYPE_PATTERN = (
     r"^(\*?\w+)(?:\[(\w+)\])?(?::\s*(\[.+?\]))?\s*(?:=\s*(.+))?$"
