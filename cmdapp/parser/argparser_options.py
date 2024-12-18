@@ -81,7 +81,7 @@ class ArgParserOptions:
             "choices",
             # "const",
             "nargs",
-            default_value="default",
+            rename={"default_value": "default"},
         ) | dict(dest=name, flags=flags, type=type, help=help)
         metavar = metadata.get("metavar", "").upper() or None
         if metavar:

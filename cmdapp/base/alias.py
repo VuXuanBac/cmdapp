@@ -68,7 +68,7 @@ class Alias:
             else:
                 key = (scope, item)
                 if key not in self.aliases:
-                    raise ValueError(f"NOT FOUND alias {item} in scope {scope}")
+                    raise ValueError(f"NOT FOUND alias `{item}` in scope `{scope}`")
                 result.append(self.aliases[key])
         return result if as_array else (result[0] if result else None)
 

@@ -84,15 +84,18 @@ def with_cases(
         inputs (dict[str]): Inputs to the method with name of the case
         expects (dict[str]): Expected output with name of the case
         pass_directly (bool, optional): True to pass the input dict directly (one argument) to the method. Defaults to False.
-        kwargs: Default arguments to `input`. Only used if `input` is a dict and not pass directly (means, it is passed by keywords)
+        kwargs: Default arguments to `input`. Only used if `input` is a dict/list and not pass directly (means, it is passed by keywords or by order)
     """
 
     def decorator(func):
         def body():
             for case, input in inputs.items():
                 try:
-                    if kwargs and isinstance(input, dict) and not pass_directly:
-                        input = kwargs | input
+                    if kwargs and not pass_directly:
+                        if isinstance(input, dict):
+                            input = kwargs | input
+                        elif isinstance(input, list):
+                            input = list(kwargs.values()) + input
                     output = get_output(handler, input, pass_directly=pass_directly)
                 except Exception as ex:
                     print("EXCEPTION", ex)

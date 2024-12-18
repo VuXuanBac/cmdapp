@@ -27,31 +27,31 @@ class Hash:
                 result[k] = d2[k]
         return result | {k: v for k, v in d2.items() if k not in result}
 
-    def filter(d: dict, *args, **kwargs) -> dict:
-        """Filter items with keys in `args` and rename items with keys in `kwargs`
+    def filter(d: dict, *args, rename: dict[str, str] = {}) -> dict:
+        """Filter items with keys in `args` and rename items with keys in `rename`
 
         Args:
             d (dict): The source dict
             args (list[str]): Allowed keys
-            kwargs (dict[str, str]): key = new_name
+            rename (dict[str, str]): key = new_name
 
         Returns:
-            dict: New dict with all items with keys in `args` and renamed keys in `kwargs`
+            dict: New dict with all items with keys in `args` and renamed keys in `rename`
         """
-        return {kwargs.get(k, k): v for k, v in d.items() if k in args or k in kwargs}
+        return {rename.get(k, k): v for k, v in d.items() if k in args or k in rename}
 
-    def ignore(d: dict, *args, **kwargs) -> dict:
-        """Return items with keys not in `args` and rename items with keys in `kwargs`
+    def ignore(d: dict, *args, rename: dict[str, str] = {}) -> dict:
+        """Return items with keys not in `args` and rename items with keys in `rename`
 
         Args:
             d (dict): The source dict
             args (list[str]): Not allowed keys
-            kwargs (dict[str, str]): key = new_name
+            rename (dict[str, str]): key = new_name
 
         Returns:
-            dict: New dict with all items with keys not in `args` and renamed keys in `kwargs`
+            dict: New dict with all items with keys not in `args` and renamed keys in `rename`
         """
-        return {kwargs.get(k, k): v for k, v in d.items() if k not in args}
+        return {rename.get(k, k): v for k, v in d.items() if k not in args}
 
     def remove(d: dict, *values) -> dict:
         """Remove all items that its value is in values
@@ -104,7 +104,7 @@ class Hash:
     def dig(d: dict, *path: str, default=None):
         current = d
         for key in path:
-            if key in current:
+            if isinstance(current, dict) and key in current:
                 current = current[key]
             else:
                 return default

@@ -24,7 +24,7 @@ class BasePrototype(Prototype):
             result_columns.pop(COLUMN_ID)
         elif command == "update":
             result_columns = {
-                k: v | {"required": False, "flags": None}
+                k: v | {"required": False, "flags": None, "default_value": None}
                 for k, v in columns_metadata.items()
             }
             result_columns[COLUMN_ID] |= {"flags": []}
@@ -95,8 +95,11 @@ class BasePrototype(Prototype):
     def do_update(app, args, custom_values: list[str], *, table: Table):
         attributes = {}
         for key in custom_values:
-            if key.startswith("--no-"):
-                attributes[key[5:]] = None
+            if not key.startswith("--no-"):
+                continue
+            key = key[5:].replace("-", "_")
+            if key in table:
+                attributes[key] = None
         for key, value in vars(args).items():
             if key in table and value is not None:
                 attributes[key] = value
@@ -293,7 +296,9 @@ class BasePrototype(Prototype):
         response = Response(app).message(
             "found", style="info", count=count, what=table.human_name(count)
         )
-        options = Hash.ignore(vars(args), "format", "columns", sort="sort_keys")
+        options = Hash.ignore(
+            vars(args), "format", "columns", rename={"sort": "sort_keys"}
+        )
 
         path = options.get("path", None)
         if path and options.get("append", False) and not Platform.isfile(path):
