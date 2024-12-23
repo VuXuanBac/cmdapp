@@ -1,4 +1,4 @@
-from ..parser import TableMeta, FieldHelper
+from ..parser import TableMeta
 from ..utils import Sanitizer
 import json
 
@@ -20,7 +20,7 @@ def generate_schema(schema: list[TableMeta], output: str = None, format="python"
                     f"{key}={repr(value)}" for key, value in metadata.items()
                 )
                 file.write(f"{variable_name} = {TableMeta.__name__}({as_args})\n\n")
-            file.write(f"DATABASE_SCHEMA = [{', '.join(tables)}]")
+            file.write(f"DATABASE_SCHEMA = [{', '.join(tables)}]\n")
 
         else:
             return json.dump(schema_dict, file, ensure_ascii=False, indent=2)

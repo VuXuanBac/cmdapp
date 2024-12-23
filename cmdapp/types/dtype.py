@@ -112,11 +112,13 @@ class DTypes:
             return value
         if isinstance(value, DTYPE2TYPE[dtype]):
             return value
-        if isinstance(value, str):
-            try:
+        try:
+            if dtype == "json" and isinstance(value, (list, tuple, set)):
+                return dict(value)
+            if isinstance(value, str):
                 return TEXT_CONVERTERS[dtype](value)
-            except:
-                pass
+        except:
+            pass
         return default
 
     def cast_heterogeneous(obj: dict, **key_dtypes):
