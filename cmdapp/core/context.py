@@ -11,6 +11,8 @@ class ContextStore:
             return self.contexts
         elif isinstance(dependencies, (list, tuple)):
             return {
-                name: context for name, context in self.contexts if name in dependencies
+                name: context
+                for name, context in self.contexts.items()
+                if name in dependencies
             }
         return {}

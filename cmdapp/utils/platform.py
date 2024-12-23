@@ -50,6 +50,10 @@ class Platform:
     def cwd(file_name: str = ""):
         return os.path.join(os.getcwd(), file_name) if file_name else os.getcwd()
 
+    def relpath(path, current_file):
+        current_dir = os.path.dirname(current_file)
+        return os.path.normpath(os.path.join(current_dir, path))
+
     def split_path(path):
         if not os.path.exists(path):
             return None, None

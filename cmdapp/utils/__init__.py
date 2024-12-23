@@ -5,3 +5,4 @@ from .extension import Hash, Array, Json
 from .platform import Terminal, Platform
 from .text import Text
 from .uri import URI
+from .validate import Sanitizer

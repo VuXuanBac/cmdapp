@@ -29,15 +29,14 @@ def test_create_column(output: FieldMeta, expect, case):
     TableMeta,
     inputs={
         "c1": {
-            "metadata": {
-                "columns": {
-                    "username": {"required": True, "dtype": "array", "proc": "telex"},
-                    "type": '(str: ["normal", "vip", "admin", "staff", "client"] = normal)',
-                    "file": {},
-                },
-                "meta-columns": [COLUMN_DELETE],
-                "constraints": ["UNIQUE(username, type)"],
+            "name": "anything",
+            "columns": {
+                "username": {"required": True, "dtype": "array", "proc": "telex"},
+                "type": '(str: ["normal", "vip", "admin", "staff", "client"] = normal)',
+                "file": {},
             },
+            "meta_columns": [COLUMN_DELETE],
+            "constraints": ["UNIQUE(username, type)"],
         }
     },
     expects={

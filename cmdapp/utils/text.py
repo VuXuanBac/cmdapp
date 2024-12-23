@@ -16,7 +16,7 @@ class Text:
         if datetime_str == "now":
             return datetime.now()
         if datetime_str == "today":
-            return datetime.today()
+            return datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
 
         # Time delta
         match_timedelta = re.match(TIME_DELTA_REGEX, datetime_str)
@@ -30,7 +30,7 @@ class Text:
             )
 
         # Format
-        datetime_str = re.sub(r"\D+", "", datetime_str)
+        datetime_str = re.sub(r"\D", "", datetime_str)
         FORMAT = "%Y%m%d%H%M%S%f"  # 4 + 2 + 2 + 2 + 2 + 2 + 6 = 20
         if len(datetime_str) == 6:
             datetime_str = "20" + datetime_str + "0" * 12

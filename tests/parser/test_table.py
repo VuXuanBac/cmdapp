@@ -1,24 +1,27 @@
-from tests.helper import *
 from cmdapp.parser.table import *
+
+from tests.helper import *
 
 TABLE_METADATA = {
     "c1": {
+        "name": "c1",
         "columns": {
             "name": "(*str): username",
             "dob": "(datetime): date of birth",
             "gender": "(bool = 0): male (true) or female (false)",
         },
-        "meta-columns": ["created_at", "deleted_at"],
+        "meta_columns": ["created_at", "deleted_at"],
         "constraints": ["UNIQUE(name, dob)"],
     },
     "c2": {
+        "name": "c2",
         "columns": {
             "123 invalid name": ": username",
         },
     },
 }
 
-TABLE_META_INSTANCE = TableMeta(TABLE_METADATA["c1"])
+TABLE_META_INSTANCE = TableMeta(**TABLE_METADATA["c1"])
 
 
 @with_cases(
@@ -42,21 +45,17 @@ TABLE_META_INSTANCE = TableMeta(TABLE_METADATA["c1"])
         "c2": dict(
             columns_in_order=[
                 COLUMN_ID,
-                "_23_invalid_name",
+                "123 invalid name",
             ],
         ),
     },
-    pass_directly=True,
 )
 def test_table_meta_init(output: TableMeta, expect, case):
     columns = TABLE_METADATA[case]["columns"]
-    meta_column_names = [COLUMN_ID] + TABLE_METADATA[case].get("meta-columns", [])
+    meta_column_names = [COLUMN_ID] + TABLE_METADATA[case].get("meta_columns", [])
     meta_columns = {k: FieldMeta(k, META_COLUMNS[k]) for k in meta_column_names}
     extended_expect = expect | dict(
-        columns={
-            FieldHelper.sanitize_name(k): FieldMeta(k, v) for k, v in columns.items()
-        }
-        | meta_columns,
+        columns={k: FieldMeta(k, v) for k, v in columns.items()} | meta_columns,
         meta_column_names=meta_column_names,
     )
     if "columns_in_order" in extended_expect:
