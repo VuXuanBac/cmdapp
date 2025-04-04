@@ -75,9 +75,7 @@ class DTypes:
     def cast_to_sqlite(value, dtype: str, default=None):
         if dtype not in SUPPORT_DTYPES:
             return default
-        if isinstance(value, DTYPE2TYPE[dtype]):
-            return DTypes.sqlite_converter(dtype)(value)
-        return default
+        return DTypes.sqlite_converter(dtype)(value)
 
     def cast_with_converters(value, converters, default=None):
         if not converters:
@@ -117,6 +115,8 @@ class DTypes:
                 return dict(value)
             if isinstance(value, str):
                 return TEXT_CONVERTERS[dtype](value)
+            else:
+                return DTYPE2TYPE[dtype](value)
         except:
             pass
         return default
