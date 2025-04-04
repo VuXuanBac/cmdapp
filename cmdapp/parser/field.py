@@ -1,7 +1,4 @@
-import re
-from .constants import COLUMN_ID
-
-from ..utils import Hash, Array
+from ..utils import Hash
 from ..types import SUPPORT_DTYPES, DTypes, DTYPE2TYPE
 from .annotation import AnnotationParser
 from .argparser_options import ArgParserOptions
@@ -36,10 +33,6 @@ ACTION_ALLOW_VALUES = [
 
 
 class FieldHelper:
-    @staticmethod
-    def sanitize_name(name: str) -> str:
-        return re.sub(r"^\d|[^\w_]", "_", name)
-
     def sanitize_field(key: str, value):
         if value is None or key not in FIELD_ATTRIBUTES_TYPES:
             return None
@@ -90,7 +83,8 @@ class FieldHelper:
 class FieldMeta:
 
     def __init__(self, name: str, metadata: str | dict):
-        self.name = FieldHelper.sanitize_name(name)
+        # print(f"CREATE FieldMeta with name = {name}, metadata = {metadata}")
+        self.name = name
         meta_dict = FieldHelper.parse(metadata)
         self.metadata = FieldHelper.sanitize_metadata(meta_dict)
 

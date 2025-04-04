@@ -24,7 +24,8 @@ class BasePrototype(Prototype):
             result_columns.pop(COLUMN_ID)
         elif command == "update":
             result_columns = {
-                k: v | {"required": False} for k, v in columns_metadata.items()
+                k: v | {"required": False, "flags": None, "default_value": None}
+                for k, v in columns_metadata.items()
             }
             result_columns[COLUMN_ID] |= {"flags": []}
         elif command == "delete":
@@ -67,17 +68,21 @@ class BasePrototype(Prototype):
     @as_command(description="Create new record", dependencies="*")
     def do_create(app, args, *, table: Table):
         attributes = vars(args)
-        success = table.insert(attributes)
-        message_kwargs = dict(
-            action="CREATE", what=table.name, result=f"{success}/1 were created"
-        )
-        if success > 0:
-            return Response(app).message("success", **message_kwargs)
+        new_id = table.insert(attributes)
+        message_kwargs = dict(action="CREATE", what=table.human_name())
+        if new_id > 0:
+            return Response(app).message(
+                "action",
+                style="success",
+                argument=COLUMN_ID,
+                value=new_id,
+                **message_kwargs,
+            )
         else:
             return (
                 Response(app)
                 .on("error")
-                .message("error", **message_kwargs)
+                .message("action", style="error", **message_kwargs)
                 .concat(BasePrototype.print_database_errors(app))
             )
 
@@ -90,17 +95,11 @@ class BasePrototype(Prototype):
     def do_update(app, args, custom_values: list[str], *, table: Table):
         attributes = {}
         for key in custom_values:
-            if key.startswith("--no-"):
-                # if table.table_meta.is_require(key[5:]):
-                #         Response(app).on("error").message(
-                #             "argument_warning",
-                #             argument=key,
-                #             status="invalid",
-                #             reason=f"the corresponded column [{key[5:]}] can not be NULL",
-                #             result=f"IGNORE [{key}]",
-                #         )
-                # else:
-                attributes[key[5:]] = None
+            if not key.startswith("--no-"):
+                continue
+            key = key[5:].replace("-", "_")
+            if key in table:
+                attributes[key] = None
         for key, value in vars(args).items():
             if key in table and value is not None:
                 attributes[key] = value
@@ -109,23 +108,46 @@ class BasePrototype(Prototype):
             return (
                 Response(app)
                 .on("error")
-                .message("argument_warning", status="empty", result="Skip updating")
+                .message(
+                    "argument", style="warning", status="empty", result="Skip updating"
+                )
             )
-
+        item_id = attributes[COLUMN_ID]
+        existed_ids = table.which_exists(item_id, with_deleted=False)
+        if not existed_ids:
+            return (
+                Response(app)
+                .on("error")
+                .message(
+                    "found",
+                    style="error",
+                    negative=True,
+                    what=table.human_name(),
+                    field=COLUMN_ID,
+                    items=item_id,
+                )
+            )
         success = table.update(attributes)
         message_kwargs = dict(
-            action="UPDATE", what=table.name, result=f"{success}/1 were updated"
+            action="UPDATE",
+            what=table.human_name(success),
         )
         if success:
-            return Response(app).message("success", **message_kwargs)
+            return Response(app).message(
+                "action",
+                style="success",
+                result=f"Record with {COLUMN_ID} = {attributes.get(COLUMN_ID)} was updated",
+                **message_kwargs,
+            )
         else:
             return (
                 Response(app)
                 .on("error")
                 .message(
-                    "error",
+                    "action",
+                    style="error",
                     argument=COLUMN_ID,
-                    value=attributes.get(COLUMN_ID, None),
+                    value=attributes.get(COLUMN_ID),
                     **message_kwargs,
                 )
                 .concat(BasePrototype.print_database_errors(app))
@@ -143,6 +165,7 @@ class BasePrototype(Prototype):
         count = len(existed_ids)
         response = Response(app).message(
             "found",
+            style="info",
             count=count,
             what=table.human_name(count),
             field=COLUMN_ID.upper(),
@@ -152,14 +175,22 @@ class BasePrototype(Prototype):
             return response
         success = table.delete_by_id(*ids, permanent=permanent)
         message_kwargs = dict(
-            action="DELETE", what=table.name, result=f"{success}/{count} were deleted"
+            action="DELETE",
+            what=table.human_name(success),
+            result=f"{success}/{count} were deleted",
         )
         if success:
-            return response.message("success", **message_kwargs)
+            return response.message("action", style="success", **message_kwargs)
         else:
             return (
                 response.on("error")
-                .message("error", argument=COLUMN_ID, value=ids, **message_kwargs)
+                .message(
+                    "action",
+                    style="error",
+                    argument=COLUMN_ID,
+                    value=ids,
+                    **message_kwargs,
+                )
                 .concat(BasePrototype.print_database_errors(app))
             )
 
@@ -190,9 +221,11 @@ class BasePrototype(Prototype):
         if page_index <= 0:
             page_index = 1
 
-        condition = (
-            None if with_deleted else SQLCondition(COLUMN_DELETE, SQLOperators.IS_NULL)
-        )
+        if with_deleted or COLUMN_DELETE not in table:
+            condition = None
+        else:
+            condition = SQLCondition(COLUMN_DELETE, SQLOperators.IS_NULL)
+
         all_items = table.query(
             columns=column_filters,
             condition=condition,
@@ -202,20 +235,25 @@ class BasePrototype(Prototype):
         count = len(all_items)
         if count == 0:
             return Response(app).message(
-                "found", negative=True, what=table.human_name(count)
+                "found", style="info", negative=True, what=table.human_name(count)
             )
 
         response = (
             Response(app)
             .message(
-                "found", count=count, total=page_size, what=table.human_name(count)
+                "found",
+                style="info",
+                count=count,
+                total=page_size,
+                what=table.human_name(count),
             )
             .table(data=all_items, style=format, widths=widths)
         )
         if page_size:
             response.message(
-                "info",
+                None,
                 f"PAGE {page_index} - {table.human_name(page_size).upper()}_PER_PAGE: {page_size}",
+                style="info",
             )
         return response
 
@@ -233,25 +271,40 @@ class BasePrototype(Prototype):
         },
         dependencies="*",
     )
-    def do_export(app, args, *, table: Table):
+    def do_export(app: BaseApp, args, *, table: Table):
         format, column_filters = Hash.get(vars(args), format=False, columns=[])
+        if not hasattr(app.response_formatter, format):
+            return (
+                Response(app)
+                .on("error")
+                .message(
+                    "action",
+                    style="error",
+                    argument="format",
+                    value=format,
+                    reason=f"this format is not supported. Use following formats: {app.response_formatter.support_file_formats}",
+                )
+            )
 
         all_items = table.query(columns=column_filters)
         count = len(all_items)
         if count == 0:
             return Response(app).message(
-                "found", negative=True, what=table.human_name(count)
+                "found", style="info", negative=True, what=table.human_name(count)
             )
 
         response = Response(app).message(
-            "found", count=count, what=table.human_name(count)
+            "found", style="info", count=count, what=table.human_name(count)
         )
-        options = Hash.ignore(vars(args), "format", "columns", sort="sort_keys")
+        options = Hash.ignore(
+            vars(args), "format", "columns", rename={"sort": "sort_keys"}
+        )
 
         path = options.get("path", None)
         if path and options.get("append", False) and not Platform.isfile(path):
             response.message(
-                "argument_warning",
+                "argument",
+                style="warning",
                 argument="--path",
                 status="invalid",
                 reason="it is not a file path",
@@ -267,9 +320,10 @@ class BasePrototype(Prototype):
                 response.on("output")
                 .__getattr__(format)(all_items, **options)
                 .message(
-                    "success",
+                    "action",
+                    style="success",
                     action="EXPORT",
-                    what=table.name,
+                    what=table.human_name(count),
                     result=f"Check the file at [{Platform.abs(path)}]",
                 )
             )

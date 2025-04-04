@@ -1,10 +1,11 @@
 from datetime import datetime
+from typing import Callable
 
 from ..types import DTypes
 from ..utils import Hash, Array
 
 from .constants import *
-from .field import FieldMeta, FieldHelper
+from .field import FieldMeta
 
 
 META_COLUMNS = {
@@ -23,42 +24,68 @@ META_COLUMN_WITH_ACTION = {
 
 class TableHelper:
     @staticmethod
-    def parse_columns(table_metadata: dict):
-        _columns = table_metadata.get("columns", {})
-        if not isinstance(_columns, dict):
-            _columns = {}
+    def parse_columns(columns: dict, meta_columns: list[str]) -> dict[str, FieldMeta]:
+        if not isinstance(columns, dict):
+            columns = {}
 
-        _meta_columns = table_metadata.get("meta-columns", [])
-        if not isinstance(_meta_columns, (tuple, list)):
-            _meta_columns = []
+        if not isinstance(meta_columns, (tuple, list)):
+            meta_columns = []
         # columns are in order
-        columns = [FieldMeta(COLUMN_ID, META_COLUMNS[COLUMN_ID])]
-        columns += [FieldMeta(k, v) for k, v in _columns.items()]
-        columns += [
-            FieldMeta(k, v) for k, v in META_COLUMNS.items() if k in _meta_columns
+        all_columns = [FieldMeta(COLUMN_ID, META_COLUMNS[COLUMN_ID])]
+        all_columns += [FieldMeta(k, v) for k, v in columns.items()]
+        all_columns += [
+            FieldMeta(k, v) for k, v in META_COLUMNS.items() if k in meta_columns
         ]
-        return {field.name: field for field in columns}
+        return {field.name: field for field in all_columns}
 
     @staticmethod
-    def parse_constraints(table_metadata: dict):
-        constraints_description = table_metadata.get("constraints", [])
+    def parse_constraints(constraints: list[str]):
         # TODO
-        return constraints_description
+        return constraints or []
 
 
 class TableMeta:
-    def __init__(self, metadata: dict):
-        self.singular = metadata.get("singular", "")
-        self.plural = metadata.get("plural", "")
+    def __init__(
+        self,
+        name: str,
+        columns: dict[str, str | dict],
+        meta_columns: list[str] = None,
+        constraints: list[str] = None,
+        *,
+        singular: str = None,
+        plural: str = None,
+        action_callback: Callable = None,
+    ):
+        """Create a Table Meta object that describe the Database Table
 
-        self.constraints = TableHelper.parse_constraints(metadata)
+        Args:
+            name (str): Name of the table, use to reference it inside Database
+            columns (dict[str, str  |  dict]): Annotation or Dict syntax to describe the table's columns
+            action_callback (Callable): A function to call when an action `create`, `update` or `delete` performed on the `Table`. The function receive the action name and the record data (dict), its can perform transformations on the data and expect to return new data for the records
+            meta_columns (list[str], optional): _description_. Defaults to None.
+            constraints (list[str], optional): _description_. Defaults to None.
+            singular (str, optional): _description_. Defaults to None.
+            plural (str, optional): _description_. Defaults to None.
+        """
+        # print(f"Create TableMeta with name = {name}, columns = {columns}")
+        self.name = name
+        singular_name = singular or self.name
+        plural_name = plural or (singular_name + "s")
+        self._human_name = (singular_name, plural_name)
 
-        columns = TableHelper.parse_columns(metadata)
-        self.columns = columns
+        self.constraints = TableHelper.parse_constraints(constraints)
+
+        parsed_columns = TableHelper.parse_columns(columns, meta_columns)
+        self.columns = parsed_columns
         self.columns_dtypes = {
-            col_name: field["dtype"] for col_name, field in columns.items()
+            col_name: field["dtype"] for col_name, field in parsed_columns.items()
         }
-        self.meta_column_names = [c for c in META_COLUMNS if c in columns]
+
+        self.meta_column_names = [c for c in META_COLUMNS if c in parsed_columns]
+        self.action_callback = action_callback or self.default_callback
+
+    def human_name(self, number=1):
+        return self._human_name[int(int(number) != 1)]
 
     def __contains__(self, key):
         return key in self.columns
@@ -74,21 +101,19 @@ class TableMeta:
             dict(name=self.name, columns=self.columns, constraints=self.constraints)
         )
 
-    def meta_column_value(self, action="create"):
+    def default_callback(self, action: str, data: dict = {}):
         column_name = META_COLUMN_WITH_ACTION.get(action, None)
         if column_name not in self:
-            return {}
-        return {column_name: DTypes.cast_to_sqlite(datetime.now(), "datetime")}
+            return data
+        return data | {column_name: DTypes.cast_to_sqlite(datetime.now(), "datetime")}
 
-    def sanitize_data(self, *data: dict, columns: list[str] = None):
-        if columns:
-            columns_dtypes = Hash.filter(self.columns_dtypes, *columns)
-        else:
-            columns_dtypes = self.columns_dtypes
-        result = [
-            DTypes.cast_heterogeneous(data_item, **columns_dtypes) for data_item in data
+    def sanitize_data(self, *data: dict):
+        if len(data) == 1:
+            return DTypes.cast_heterogeneous(data[0], **self.columns_dtypes)
+        return [
+            DTypes.cast_heterogeneous(data_item, **self.columns_dtypes)
+            for data_item in data
         ]
-        return Array.unpack_one(result)
 
     def get_columns_by_name(self, column: str) -> list[str]:
         if column == ALL_LITERAL:
@@ -123,3 +148,13 @@ class TableMeta:
             #     result.difference_update(*excludes)
         # return in columns order
         return [col for col in self.columns if col in result]
+
+    def to_json(self):
+        return dict(
+            name=self.name,
+            singular=self._human_name[0],
+            plural=self._human_name[1],
+            columns={k: v.metadata for k, v in self.columns.items()},
+            meta_columns=self.meta_column_names,
+            constraints=self.constraints,
+        )

@@ -7,8 +7,9 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-cmd2 = "^2.4.3"
+cmd2 = "==2.4.3"
 bogo = "^1.1"
+pyyaml = "^6.0.2"
 
 
 [build-system]

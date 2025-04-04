@@ -1,3 +1,4 @@
+import re
 from ..utils import Text, Json
 
 from .sqlite import (
@@ -32,6 +33,16 @@ DTYPE2TYPE = {
     "datetime": datetime,
 }
 
+KEY_VALUE_PATTERN = r"^(.+)[=:](.+)$"
+
+
+def convert_key_value(arg: str, subtype: str) -> tuple:
+    matched = re.match(KEY_VALUE_PATTERN, arg)
+    if not matched:
+        return (None, arg)
+    key, value = matched.groups()
+    return (key, TEXT_CONVERTERS[subtype](value))
+
 
 class DTypes:
     @staticmethod
@@ -56,15 +67,15 @@ class DTypes:
         return get_python_converter(dtype)
 
     @staticmethod
-    def text_converter(dtype: str):
+    def text_converter(dtype: str, context_dtype: str = None):
+        if context_dtype == "json" and dtype != "json":
+            return lambda value: convert_key_value(value, dtype)
         return TEXT_CONVERTERS.get(dtype, None)
 
     def cast_to_sqlite(value, dtype: str, default=None):
         if dtype not in SUPPORT_DTYPES:
             return default
-        if isinstance(value, DTYPE2TYPE[dtype]):
-            return DTypes.sqlite_converter(dtype)(value)
-        return default
+        return DTypes.sqlite_converter(dtype)(value)
 
     def cast_with_converters(value, converters, default=None):
         if not converters:
@@ -99,11 +110,15 @@ class DTypes:
             return value
         if isinstance(value, DTYPE2TYPE[dtype]):
             return value
-        if isinstance(value, str):
-            try:
+        try:
+            if dtype == "json" and isinstance(value, (list, tuple, set)):
+                return dict(value)
+            if isinstance(value, str):
                 return TEXT_CONVERTERS[dtype](value)
-            except:
-                pass
+            else:
+                return DTYPE2TYPE[dtype](value)
+        except:
+            pass
         return default
 
     def cast_heterogeneous(obj: dict, **key_dtypes):

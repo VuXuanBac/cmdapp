@@ -6,12 +6,19 @@ from cmd2 import table_creator as tabling
 class Tabling:
     STYLE = ["Simple", "Bordered", "Alternating"]
 
+    def get_single_column_width(number_of_parts: int):
+        return int(Terminal.width() * 0.7 // number_of_parts)
+
     def _create_columns(headers: list[str], widths: list[int]):
         n_columns = len(headers)
         widths = (widths or [])[:n_columns] + [1] * (n_columns - len(widths or []))
-        single_width = int(Terminal.width() * 0.7 // sum(widths))
+        single_width = Tabling.get_single_column_width(sum(widths))
         return [
-            tabling.Column(header, width=w * single_width)
+            tabling.Column(
+                header,
+                width=w * single_width,
+                header_horiz_align=tabling.HorizontalAlignment.CENTER,
+            )
             for header, w in zip(headers, widths)
         ]
 

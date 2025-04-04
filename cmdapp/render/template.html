@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{title}}</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f4f4f9;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        border: 1px solid #ddd;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        background-color: white;
+      }
+      th,
+      td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+      th {
+        background-color: #4caf50;
+        color: white;
+        cursor: pointer;
+      }
+      tr:hover {
+        background-color: #f1f1f1;
+      }
+      th:hover {
+        background-color: #45a049;
+      }
+      .sorted-asc::after {
+        content: " \2191"; /* up arrow */
+      }
+      .sorted-desc::after {
+        content: " \2193"; /* down arrow */
+      }
+    </style>
+  </head>
+  <body>
+    <h1>{{title}}</h1>
+    <div>{{description}}</div>
+    <table id="data-table">
+      <thead>
+        <tr>
+          {{header}}
+        </tr>
+      </thead>
+      <tbody>
+        {{body}}
+      </tbody>
+    </table>
+
+    <script>
+      let sortOrder = {};
+
+      function headerOnClick(header) {
+        const table = document.getElementById("data-table");
+        const rows = Array.from(table.querySelectorAll("tr")).slice(1); // Get all rows except the header
+        const columnIndex = Array.from(header.parentNode.children).indexOf(
+          header
+        );
+        const currentOrder = sortOrder[columnIndex] || "asc";
+
+        const newOrder = currentOrder === "asc" ? "desc" : "asc";
+        sortOrder[columnIndex] = newOrder;
+
+        const sortedRows = rows.sort((rowA, rowB) => {
+          const cellA = rowA.children[columnIndex].innerText;
+          const cellB = rowB.children[columnIndex].innerText;
+
+          const a = isNaN(cellA) ? cellA : parseFloat(cellA);
+          const b = isNaN(cellB) ? cellB : parseFloat(cellB);
+
+          if (a > b) return newOrder === "asc" ? 1 : -1;
+          if (a < b) return newOrder === "asc" ? -1 : 1;
+          return 0;
+        });
+
+        // Clear existing rows and append sorted rows
+        rows.forEach((row) => table.deleteRow(row.rowIndex));
+        sortedRows.forEach((row) =>
+          table.querySelector("tbody").appendChild(row)
+        );
+
+        // Update the header's sort indication
+        const headers = table.querySelectorAll("th");
+        headers.forEach((h) => h.classList.remove("sorted-asc", "sorted-desc"));
+        header.classList.add(newOrder === "asc" ? "sorted-asc" : "sorted-desc");
+      }
+    </script>
+  </body>
+</html>
